@@ -25,7 +25,7 @@ from telegram.ext import (
 # تنظیمات اصلی
 # =========================================================
 
-CHANNEL_USERNAME = "@Celestiaworldbot"
+CHANNEL_USERNAME = "@Celestia_world1"
 
 ACCOUNTS_FILE = "accounts.json"
 
