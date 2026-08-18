@@ -86,7 +86,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown",
         )
 def main():
-    TOKEN = "8818132213:AAGyLWfZCtYj0LQNt7VBQlPTf1mSHrRhgEk"  # توکن رباتت رو از BotFather بگیر
+    TOKEN = "8818132213:AAF9uRYKzoD35AuLKg6HwALAmUvalyot-So"  # توکن رباتت رو از BotFather بگیر
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
