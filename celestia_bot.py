@@ -11,7 +11,12 @@ from telegram.ext import (
     filters,
 )
 
-# ---------- ذخیره اکانت‌ها (فایل JSON) ----------
+# ========== تنظیمات ==========
+# آیدی کانال (مثلاً @mychannel رو بذار)
+CHANNEL_USERNAME = "@Celestia_world1"  # ⚠️ اینو عوض کن
+# اگه کانالت خصوصیه، بجای یوزرنیم، آیدی عددی بذار (مثلاً -1001234567890)
+
+# ---------- ذخیره اکانت‌ها ----------
 ACCOUNTS_FILE = "accounts.json"
 
 def load_accounts():
@@ -26,6 +31,26 @@ def load_accounts():
 def save_accounts(accounts):
     with open(ACCOUNTS_FILE, "w", encoding="utf-8") as f:
         json.dump(accounts, f, ensure_ascii=False, indent=2)
+
+# ---------- چک عضویت در کانال ----------
+async def check_membership(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
+    try:
+        member = await context.bot.get_chat_member(chat_id=CHANNEL_USERNAME, user_id=user_id)
+        # وضعیت‌های مجاز: creator, administrator, member
+        if member.status in ["creator", "administrator", "member"]:
+            return True
+        return False
+    except Exception as e:
+        print(f"⚠️ خطا در چک عضویت: {e}")
+        # اگه خطا داد، فرض می‌کنیم عضو نیست
+        return False
+
+def force_join_keyboard():
+    keyboard = [
+        [InlineKeyboardButton("📢 عضو کانال میشم", url=f"https://t.me/{CHANNEL_USERNAME.replace('@', '')}")],
+        [InlineKeyboardButton("✅ عضو شدم", callback_data="check_join")],
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
 # ---------- کیبوردها ----------
 def main_menu_keyboard():
@@ -74,6 +99,19 @@ def delete_confirm_keyboard():
 
 # ---------- دستور /start ----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    
+    # چک عضویت
+    is_member = await check_membership(context, user_id)
+    if not is_member:
+        await update.message.reply_text(
+            "👋 سلام!\n\n"
+            "برای استفاده از ربات سلستیا، اول باید عضو کانال ما بشی 🌌\n\n"
+            "روی دکمه پایین بزن و بعدش دکمه «عضو شدم» رو بزن:",
+            reply_markup=force_join_keyboard(),
+        )
+        return
+    
     text = (
         "🌌 به دنیای سلستیا خوش اومدی!\n"
         "دنیای شمشیر و جادو در انتظار توئه…\n\n"
@@ -91,9 +129,40 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     data = query.data
     
-    user_id = str(query.from_user.id)
+    user_id = query.from_user.id
     accounts = load_accounts()
+    
+    # 🔒 چک عضویت برای همه دکمه‌ها (به جز خود join check)
+    if data != "check_join":
+        is_member = await check_membership(context, user_id)
+        if not is_member:
+            await query.edit_message_text(
+                "⚠️ هنوز عضو کانال نشدی!\n\n"
+                "اول عضو کانال شو، بعد بیا:",
+                reply_markup=force_join_keyboard(),
+            )
+            return
 
+    # ---------- چک عضویت: کاربر زد "عضو شدم" ----------
+    if data == "check_join":
+        is_member = await check_membership(context, user_id)
+        if is_member:
+            text = (
+                "✅ عالی! عضو شدی.\n\n"
+                "🌌 به دنیای سلستیا خوش اومدی!\n"
+                "دنیای شمشیر و جادو در انتظار توئه…\n\n"
+                "یکی از گزینه‌های زیر رو انتخاب کن:"
+            )
+            await query.edit_message_text(
+                text,
+                reply_markup=main_menu_keyboard(),
+                parse_mode="Markdown",
+            )
+        else:
+            await query.answer("❌ هنوز عضو نشدی! اول عضو شو.", show_alert=True)
+        return
+
+    # ---------- بقیه دکمه‌ها ----------
     if data == "back_main":
         text = (
             "🌌 به دنیای سلستیا خوش اومدی!\n"
@@ -107,7 +176,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif data == "profile":
-        if user_id not in accounts:
+        if str(user_id) not in accounts:
             await query.edit_message_text(
                 "👤 *پروفایل*\n\n"
                 "❌ هنوز هیچ اکانتی نساختی!\n\n"
@@ -116,16 +185,18 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="Markdown",
             )
         else:
-            acc = accounts[user_id]
+            acc = accounts[str(user_id)]
             name = acc.get("name", "بی‌نام")
             level = acc.get("level", 1)
             xp = acc.get("xp", 0)
             skills = acc.get("skills", ["بدون مهارت"])
+            telegram_id = acc.get("telegram_id", user_id)
             
             skills_text = "، ".join(skills) if isinstance(skills, list) else skills
             
             await query.edit_message_text(
                 f"👤 *پروفایل {name}*\n\n"
+                f"🆔 آیدی: `{telegram_id}`\n"
                 f"🎚 سطح: `{level}`\n"
                 f"✨ تجربه: `{xp} XP`\n"
                 f"⚔️ مهارت‌ها: {skills_text}",
@@ -135,7 +206,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data == "create_account":
         name = query.from_user.first_name or "بازیکن"
-        accounts[user_id] = {
+        accounts[str(user_id)] = {
+            "telegram_id": user_id,
             "name": name,
             "level": 1,
             "xp": 0,
@@ -151,7 +223,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif data == "delete_account":
-        if user_id not in accounts:
+        if str(user_id) not in accounts:
             await query.edit_message_text(
                 "❌ اکانتی نداری که بخوای حذف کنی!",
                 reply_markup=back_keyboard(),
@@ -167,14 +239,13 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
     elif data == "confirm_delete":
-        if user_id not in accounts:
+        if str(user_id) not in accounts:
             await query.edit_message_text(
                 "❌ اکانتی نداری!",
                 reply_markup=back_keyboard(),
                 parse_mode="Markdown",
             )
         else:
-            # ساخت کد ۵ رقمی رندوم
             code = str(random.randint(10000, 99999))
             context.user_data["delete_code"] = code
             context.user_data["waiting_for_code"] = True
@@ -208,17 +279,24 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown",
         )
 
-# ---------- مدیریت پیام‌های متنی (برای دریافت کد تأیید) ----------
+# ---------- مدیریت پیام‌های متنی ----------
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.message.from_user.id)
     
-    # اگه منتظر کد تأیید هستیم
+    # چک عضویت برای پیام‌های معمولی هم
+    is_member = await check_membership(context, int(user_id))
+    if not is_member:
+        await update.message.reply_text(
+            "⚠️ اول باید عضو کانال بشی:",
+            reply_markup=force_join_keyboard(),
+        )
+        return
+    
     if context.user_data.get("waiting_for_code"):
         user_code = update.message.text.strip()
         correct_code = context.user_data.get("delete_code")
         
         if user_code == correct_code:
-            # حذف اکانت
             accounts = load_accounts()
             if user_id in accounts:
                 del accounts[user_id]
@@ -238,7 +316,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=delete_confirm_keyboard(),
             )
     else:
-        # اگه پیام معمولی بود، منوی اصلی رو نشون بده
         await update.message.reply_text(
             "از دکمه‌ها استفاده کن 👇",
             reply_markup=main_menu_keyboard(),
@@ -249,7 +326,6 @@ def main():
     
     if not TOKEN:
         print("❌ خطا: متغیر TOKEN تنظیم نشده!")
-        print("برو توی Railway → Variables و TOKEN رو اضافه کن")
         return
     
     app = ApplicationBuilder().token(TOKEN).build()
