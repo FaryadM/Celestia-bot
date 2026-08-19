@@ -14,7 +14,7 @@ from telegram.ext import (
 
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_USERNAME = "@Celestia_world1"   # کانال اجباری
-CREATOR_ID = Administrator1099M                  # آیدی عددی ادمین اصلی (خودت عوض کن)
+CREATOR_ID = 8433719957                  # آیدی عددی ادمین اصلی (خودت عوض کن)
 DATA_FILE = "players.json"
 ADMIN_FILE = "admins.json"
 ITEMS_FILE = "items.json"
