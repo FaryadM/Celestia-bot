@@ -986,3 +986,16 @@ async def ban_user(query, target_id):
     )
 
 # ==========================================
+print(
+        "🌌 ربات سلستیا روشن شد..."
+    )
+
+    app.run_polling(
+        drop_pending_updates=True
+    )
+
+
+# شروع
+
+if __name__ == "__main__":
+    main()
