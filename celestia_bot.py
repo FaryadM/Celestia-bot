@@ -24,7 +24,7 @@ from telegram.ext import (
 # تنظیمات اصلی
 # ==========================
 
-BOT_TOKEN = "YOUR_BOT_TOKEN"
+BOT_TOKEN = "8818132213:AAF9uRYKzoD35AuLKg6HwALAmUvalyot-So"
 
 ADMIN_USERNAME = "Admin"
 ADMIN_PASSWORD = "Admin109900"
